@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<style>
+
+    .form-card{
+
+        background:white;
+
+        padding:45px;
+
+        border-radius:28px;
+
+        box-shadow:
+        0 10px 30px rgba(0,0,0,0.05);
+
+        animation:fadeUp 0.7s ease;
+    }
+
+    @keyframes fadeUp{
+
+        from{
+            opacity:0;
+            transform:translateY(30px);
+        }
+
+        to{
+            opacity:1;
+            transform:translateY(0);
+        }
+    }
+
+    .form-title{
+
+        font-size:32px;
+
+        font-weight:700;
+
+        margin-bottom:8px;
+    }
+
+    .form-subtitle{
+
+        color:#777;
+
+        margin-bottom:35px;
+    }
+
+    label{
+
+        margin-bottom:10px;
+
+        font-weight:600;
+    }
+
+    input,
+    textarea,
+    select{
+
+        width:100%;
+
+        border:1px solid #e5e7eb;
+
+        border-radius:16px;
+
+        padding:15px;
+
+        outline:none;
+
+        transition:0.3s;
+
+        background:#fafafa;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus{
+
+        border-color:#0d8bff;
+
+        background:white;
+
+        box-shadow:
+        0 0 0 4px rgba(13,139,255,0.1);
+    }
+
+    .save-btn{
+
+        background:#0d8bff;
+
+        color:white;
+
+        border:none;
+
+        padding:16px 30px;
+
+        border-radius:16px;
+
+        font-weight:600;
+
+        transition:0.3s;
+    }
+
+    .save-btn:hover{
+
+        background:#0070d8;
+
+        transform:translateY(-2px);
+    }
+
+</style>
+
+<div class="form-card">
+
+    <div class="form-title">
+
+        Add Property
+
+    </div>
+
+    <div class="form-subtitle">
+
+        Create and manage luxury real estate listings
+
+    </div>
+
+    <form method="POST" enctype="multipart/form-data">
+
+        {% csrf_token %}
+
+        <div class="row">
+
+            {% for field in form %}
+
+            <div class="col-md-6 mb-4">
+
+                <label>
+
+                    {{ field.label }}
+
+                </label>
+
+                {{ field }}
+
+                {% if field.errors %}
+
+                    <small class="text-danger">
+
+                        {{ field.errors }}
+
+                    </small>
+
+                {% endif %}
+
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+        <button
+            class="save-btn"
+        >
+
+            Save Property
+
+        </button>
+
+    </form>
+
+</div>
+
+{% endblock %}
