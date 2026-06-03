@@ -214,7 +214,7 @@
 
     </div>
 
-    <a href="{% url 'add_property' %}" class="btn-add">
+    <a href="/add-property" class="btn-add">
 
         + Add Property
 
@@ -230,7 +230,7 @@
 
         <div class="dashboard-card">
 
-            <img src="{{ property.featured_image.url }}">
+            <img src="{{ property.featured_image }}">
 
             <div class="card-content">
 
@@ -273,14 +273,14 @@
                 <div class="action-buttons">
 
                     <a
-                        href="{% url 'edit_property' property.id %}"
+                        href="/edit-property/{{ property.id }}"
                         class="btn-edit"
                     >
                         Edit
                     </a>
 
                     <a
-                        href="{% url 'delete_property' property.id %}"
+                        href="/delete-property/{{ property.id }}"
                         class="btn-delete"
                     >
                         Delete

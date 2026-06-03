@@ -1,4 +1,4 @@
-{% load static %}
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -13,7 +13,7 @@
     <link
         rel="icon"
         type="image/x-icon"
-        href="{% static 'images/favicon.ico' %}"
+        href="/images/favicon.ico"
     >
 
 
@@ -383,7 +383,7 @@ body{
         <div class="logo">
 
             <img
-                src="{% static 'images/omdev-logo.jpg' %}"
+                src="/images/omdev-logo.jpg"
                 alt="Omdev Logo"
             >
 
@@ -395,7 +395,7 @@ body{
 
         <div class="menu">
 
-            <a href="{% url 'dashboard' %}">
+            <a href="/">
 
                 <i class="bi bi-grid"></i>
 
@@ -403,7 +403,7 @@ body{
 
             </a>
 
-            <a href="{% url 'add_property' %}">
+            <a href="/add-property">
 
                 <i class="bi bi-building"></i>
 
@@ -413,10 +413,10 @@ body{
 
             <form
                 method="POST"
-                action="{% url 'logout' %}"
+                action="/logout"
             >
 
-                {% csrf_token %}
+
 
                 <button
                     type="submit"

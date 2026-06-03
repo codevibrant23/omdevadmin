@@ -4,3 +4,7 @@ __pycache__/
 staticfiles/
 media/
 .env
+/generated/prisma
+node_modules/
+.DS_Store
+.vercel/

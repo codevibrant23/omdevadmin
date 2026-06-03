@@ -127,35 +127,20 @@
 
     <form method="POST" enctype="multipart/form-data">
 
-        {% csrf_token %}
+
 
         <div class="row">
 
-            {% for field in form %}
-
-            <div class="col-md-6 mb-4">
-
-                <label>
-
-                    {{ field.label }}
-
-                </label>
-
-                {{ field }}
-
-                {% if field.errors %}
-
-                    <small class="text-danger">
-
-                        {{ field.errors }}
-
-                    </small>
-
-                {% endif %}
-
-            </div>
-
-            {% endfor %}
+            <div class="col-md-6 mb-4"><label>Title</label><input type="text" name="title" value="{{ property.title }}" required></div>
+            <div class="col-md-6 mb-4"><label>Property Type</label><select name="property_type" required><option value="residential" {% if property.property_type == 'residential' %}selected{% endif %}>Residential</option><option value="commercial" {% if property.property_type == 'commercial' %}selected{% endif %}>Commercial</option></select></div>
+            <div class="col-md-6 mb-4"><label>City</label><input type="text" name="city" value="{{ property.city }}" required></div>
+            <div class="col-md-6 mb-4"><label>Bedrooms</label><input type="number" name="bedrooms" value="{{ property.bedrooms }}" required></div>
+            <div class="col-md-6 mb-4"><label>Bathrooms</label><input type="number" name="bathrooms" value="{{ property.bathrooms }}" required></div>
+            <div class="col-md-6 mb-4"><label>Area</label><input type="text" name="area" value="{{ property.area }}" required></div>
+            <div class="col-md-6 mb-4"><label>Price</label><input type="text" name="price" value="{{ property.price }}" required></div>
+            <div class="col-md-6 mb-4"><label>Featured Image</label><input type="file" name="featured_image" accept="image/*" {% if not property %}required{% endif %}></div>
+            <div class="col-12 mb-4"><label>Address</label><textarea name="address" rows="2" required>{{ property.address }}</textarea></div>
+            <div class="col-12 mb-4"><label>Description</label><textarea name="description" rows="4" required>{{ property.description }}</textarea></div>
 
         </div>
 
