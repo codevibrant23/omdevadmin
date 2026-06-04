@@ -5,6 +5,7 @@ const path = require('path');
 const multer = require('multer');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
+const cors = require('cors');
 const { Pool } = require('pg');
 const slugify = require('slugify');
 
@@ -45,6 +46,7 @@ const initDB = async () => {
 initDB();
 
 // Middleware
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
