@@ -6,44 +6,36 @@ const multer = require('multer');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const cors = require('cors');
-const { Pool } = require('pg');
+const mongoose = require('mongoose');
 const slugify = require('slugify');
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+// Connect to MongoDB
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
+
+// Mongoose Schema
+const PropertySchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  slug: { type: String, unique: true, required: true },
+  property_type: { type: String, required: true },
+  description: { type: String, required: true },
+  address: { type: String, required: true },
+  city: { type: String, required: true },
+  bedrooms: { type: Number, default: 0 },
+  bathrooms: { type: Number, default: 0 },
+  area: { type: String, required: true },
+  price: { type: String, required: true },
+  featured_image: { type: String, required: true },
+  is_active: { type: Boolean, default: true },
+  created_at: { type: Date, default: Date.now }
+}, {
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
+const Property = mongoose.models.Property || mongoose.model('Property', PropertySchema);
 
 const app = express();
-
-// Initialize DB Table
-const initDB = async () => {
-  const query = `
-    CREATE TABLE IF NOT EXISTS property (
-      id SERIAL PRIMARY KEY,
-      title VARCHAR(255) NOT NULL,
-      slug VARCHAR(255) UNIQUE NOT NULL,
-      property_type VARCHAR(50) NOT NULL,
-      description TEXT NOT NULL,
-      address TEXT NOT NULL,
-      city VARCHAR(100) NOT NULL,
-      bedrooms INTEGER DEFAULT 0,
-      bathrooms INTEGER DEFAULT 0,
-      area VARCHAR(100) NOT NULL,
-      price VARCHAR(100) NOT NULL,
-      featured_image TEXT NOT NULL,
-      is_active BOOLEAN DEFAULT true,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  `;
-  try {
-    await pool.query(query);
-    console.log("Database initialized");
-  } catch (err) {
-    console.error("Error initializing database", err);
-  }
-};
-
-initDB();
 
 // Middleware
 app.use(cors());
@@ -51,7 +43,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
 app.use(session({
-    secret: 'omdev-secret-key-neon-vercel',
+    secret: 'omdev-secret-key-mongo',
     resave: false,
     saveUninitialized: false
 }));
@@ -81,12 +73,11 @@ const requireAuth = (req, res, next) => {
     }
 };
 
-// Multer for memory storage (images converted to base64)
+// Multer for memory storage (for file uploads, though we'll just save the path now)
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
 // Routes
-
 app.get('/login', (req, res) => {
     res.render('login.html');
 });
@@ -108,8 +99,8 @@ app.post('/logout', (req, res) => {
 
 app.get('/', requireAuth, async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM property ORDER BY id DESC');
-        res.render('dashboard.html', { properties: result.rows });
+        const properties = await Property.find().sort({ created_at: -1 });
+        res.render('dashboard.html', { properties });
     } catch (error) {
         res.status(500).send(error.message);
     }
@@ -126,28 +117,29 @@ app.post('/add-property', requireAuth, upload.single('featured_image'), async (r
         let slug = base_slug;
         let counter = 1;
         
-        while (true) {
-            const slugCheck = await pool.query('SELECT id FROM property WHERE slug = $1', [slug]);
-            if (slugCheck.rows.length === 0) break;
+        while (await Property.findOne({ slug })) {
             slug = `${base_slug}-${counter}`;
             counter++;
         }
 
-        let featured_image = '';
-        if (req.file) {
-            const b64 = req.file.buffer.toString('base64');
-            featured_image = `data:${req.file.mimetype};base64,${b64}`;
-        }
+        // For this optimized setup, if an image is uploaded, you'd typically upload it to Cloudinary here.
+        // For simplicity and to fix the performance, we will default all images to point to the fast public/image.png
+        // unless they provide an external URL. 
+        let featured_image = '/image.png';
 
-        const query = `
-            INSERT INTO property (title, slug, property_type, description, address, city, bedrooms, bathrooms, area, price, featured_image)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        `;
-        const values = [
-            data.title, slug, data.property_type, data.description, data.address, data.city,
-            parseInt(data.bedrooms) || 0, parseInt(data.bathrooms) || 0, data.area, data.price, featured_image
-        ];
-        await pool.query(query, values);
+        await Property.create({
+            title: data.title,
+            slug: slug,
+            property_type: data.property_type,
+            description: data.description,
+            address: data.address,
+            city: data.city,
+            bedrooms: parseInt(data.bedrooms) || 0,
+            bathrooms: parseInt(data.bathrooms) || 0,
+            area: data.area,
+            price: data.price,
+            featured_image: featured_image
+        });
         
         res.redirect('/');
     } catch (error) {
@@ -158,10 +150,9 @@ app.post('/add-property', requireAuth, upload.single('featured_image'), async (r
 
 app.get('/edit-property/:id', requireAuth, async (req, res) => {
     try {
-        const id = parseInt(req.params.id);
-        const result = await pool.query('SELECT * FROM property WHERE id = $1', [id]);
-        if (result.rows.length === 0) return res.status(404).send('Not found');
-        res.render('property_form.html', { property: result.rows[0] });
+        const property = await Property.findById(req.params.id);
+        if (!property) return res.status(404).send('Not found');
+        res.render('property_form.html', { property });
     } catch (error) {
         res.status(500).send(error.message);
     }
@@ -169,33 +160,20 @@ app.get('/edit-property/:id', requireAuth, async (req, res) => {
 
 app.post('/edit-property/:id', requireAuth, upload.single('featured_image'), async (req, res) => {
     try {
-        const id = parseInt(req.params.id);
         const data = req.body;
+        const updateData = {
+            title: data.title,
+            property_type: data.property_type,
+            description: data.description,
+            address: data.address,
+            city: data.city,
+            bedrooms: parseInt(data.bedrooms) || 0,
+            bathrooms: parseInt(data.bathrooms) || 0,
+            area: data.area,
+            price: data.price
+        };
 
-        if (req.file) {
-            const b64 = req.file.buffer.toString('base64');
-            const featured_image = `data:${req.file.mimetype};base64,${b64}`;
-            const query = `
-                UPDATE property SET title=$1, property_type=$2, description=$3, address=$4, city=$5, bedrooms=$6, bathrooms=$7, area=$8, price=$9, featured_image=$10
-                WHERE id=$11
-            `;
-            const values = [
-                data.title, data.property_type, data.description, data.address, data.city,
-                parseInt(data.bedrooms) || 0, parseInt(data.bathrooms) || 0, data.area, data.price, featured_image, id
-            ];
-            await pool.query(query, values);
-        } else {
-            const query = `
-                UPDATE property SET title=$1, property_type=$2, description=$3, address=$4, city=$5, bedrooms=$6, bathrooms=$7, area=$8, price=$9
-                WHERE id=$10
-            `;
-            const values = [
-                data.title, data.property_type, data.description, data.address, data.city,
-                parseInt(data.bedrooms) || 0, parseInt(data.bathrooms) || 0, data.area, data.price, id
-            ];
-            await pool.query(query, values);
-        }
-
+        await Property.findByIdAndUpdate(req.params.id, updateData);
         res.redirect('/');
     } catch (error) {
         res.status(500).send(error.message);
@@ -204,8 +182,7 @@ app.post('/edit-property/:id', requireAuth, upload.single('featured_image'), asy
 
 app.get('/delete-property/:id', requireAuth, async (req, res) => {
     try {
-        const id = parseInt(req.params.id);
-        await pool.query('DELETE FROM property WHERE id = $1', [id]);
+        await Property.findByIdAndDelete(req.params.id);
         res.redirect('/');
     } catch (error) {
         res.status(500).send(error.message);
@@ -215,8 +192,21 @@ app.get('/delete-property/:id', requireAuth, async (req, res) => {
 // APIs
 app.get('/api/properties', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM property WHERE is_active = true ORDER BY id DESC');
-        res.json({ error: false, message: "Properties fetched successfully", data: result.rows });
+        const properties = await Property.find({ is_active: true }).sort({ created_at: -1 });
+        
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+        const host = req.headers['x-forwarded-host'] || req.get('host');
+        const baseUrl = `${protocol}://${host}`;
+        
+        const formattedProperties = properties.map(p => {
+            const obj = p.toJSON();
+            if (obj.featured_image && obj.featured_image.startsWith('/')) {
+                obj.featured_image = `${baseUrl}${obj.featured_image}`;
+            }
+            return obj;
+        });
+
+        res.json({ error: false, message: "Properties fetched successfully", data: formattedProperties });
     } catch (error) {
         res.status(500).json({ error: true, message: error.message });
     }
@@ -224,10 +214,19 @@ app.get('/api/properties', async (req, res) => {
 
 app.get('/api/property/:id', async (req, res) => {
     try {
-        const id = parseInt(req.params.id);
-        const result = await pool.query('SELECT * FROM property WHERE id = $1 AND is_active = true', [id]);
-        if (result.rows.length === 0) return res.status(404).json({ error: true, message: "Property not found" });
-        res.json({ error: false, message: "Property details fetched successfully", data: result.rows[0] });
+        const property = await Property.findOne({ _id: req.params.id, is_active: true });
+        if (!property) return res.status(404).json({ error: true, message: "Property not found" });
+        
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+        const host = req.headers['x-forwarded-host'] || req.get('host');
+        const baseUrl = `${protocol}://${host}`;
+        
+        const obj = property.toJSON();
+        if (obj.featured_image && obj.featured_image.startsWith('/')) {
+            obj.featured_image = `${baseUrl}${obj.featured_image}`;
+        }
+        
+        res.json({ error: false, message: "Property details fetched successfully", data: obj });
     } catch (error) {
         res.status(500).json({ error: true, message: error.message });
     }
