@@ -134,7 +134,7 @@ app.post('/logout', (req, res) => {
 
 app.get('/', requireAuth, async (req, res) => {
     try {
-        const properties = await Property.find().sort({ created_at: -1 });
+        const properties = await Property.find().sort({ created_at: -1 }).lean();
         res.render('dashboard.html', { properties });
     } catch (error) {
         res.status(500).send(error.message);
@@ -185,7 +185,7 @@ app.post('/add-property', requireAuth, upload.single('featured_image'), async (r
 
 app.get('/edit-property/:id', requireAuth, async (req, res) => {
     try {
-        const property = await Property.findById(req.params.id);
+        const property = await Property.findById(req.params.id).lean();
         if (!property) return res.status(404).send('Not found');
         res.render('property_form.html', { property });
     } catch (error) {
