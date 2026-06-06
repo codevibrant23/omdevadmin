@@ -9,10 +9,34 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const slugify = require('slugify');
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
+// Serverless MongoDB Connection Cache
+let cached = global.mongoose;
+if (!cached) {
+    cached = global.mongoose = { conn: null, promise: null };
+}
+
+async function connectDB() {
+    if (cached.conn) {
+        return cached.conn;
+    }
+    if (!cached.promise) {
+        const opts = {
+            bufferCommands: false,
+            serverSelectionTimeoutMS: 10000,
+            socketTimeoutMS: 45000,
+        };
+        cached.promise = mongoose.connect(process.env.MONGODB_URI, opts).then((mongoose) => {
+            return mongoose;
+        });
+    }
+    try {
+        cached.conn = await cached.promise;
+    } catch (e) {
+        cached.promise = null;
+        throw e;
+    }
+    return cached.conn;
+}
 
 // Mongoose Schema
 const PropertySchema = new mongoose.Schema({
@@ -36,6 +60,17 @@ const PropertySchema = new mongoose.Schema({
 const Property = mongoose.models.Property || mongoose.model('Property', PropertySchema);
 
 const app = express();
+
+// Database Connection Middleware (Required for Vercel Serverless)
+app.use(async (req, res, next) => {
+    try {
+        await connectDB();
+        next();
+    } catch (error) {
+        console.error("DB Connection Error:", error);
+        res.status(500).send("Database connection failed");
+    }
+});
 
 // Middleware
 app.use(cors());
